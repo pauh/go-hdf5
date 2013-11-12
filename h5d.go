@@ -84,13 +84,13 @@ func (s *Dataset) Space() *Dataspace {
 
 // Returns an identifier for a copy of the datatype for a dataset.
 // hid_t H5Dget_type(hid_t dataset_id )
-func (s *DataSet) Type() (*DataType, error) {
+func (s *Dataset) Type() (*Datatype, error) {
 	hid := C.H5Dget_type(s.id)
-	err := togo_err(C.herr_t(int(hid)))
+	err := h5err(C.herr_t(int(hid)))
 	if err != nil {
 		return nil, err
 	}
-	dt := new_dtype(hid, nil)
+	dt := NewDatatype(hid, nil)
 	return dt, err
 }
 
@@ -110,7 +110,7 @@ func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 
 	case reflect.Slice:
 		if v.Index(0).Kind() == reflect.String && C.H5Tis_variable_str(dtype.id) == 0 {
-			tmp_slice = make([]byte, v.Len() * dtype.Size())
+			tmp_slice = make([]byte, v.Len() * int(dtype.Size()))
 			addr = reflect.ValueOf(tmp_slice).Pointer()
 			post_process = true
 		} else {
@@ -132,7 +132,7 @@ func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 	err := h5err(rc)
 
 	if err == nil && post_process {
-		str_len := dtype.Size()
+		str_len := int(dtype.Size())
 		for i := 0; i < v.Len(); i++ {
 			v.Index(i).SetString(string(tmp_slice[i*str_len:(i+1)*str_len]))
 		}
