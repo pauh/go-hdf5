@@ -82,6 +82,18 @@ func (s *Dataset) Space() *Dataspace {
 	return nil
 }
 
+// Returns an identifier for a copy of the datatype for a dataset.
+// hid_t H5Dget_type(hid_t dataset_id )
+func (s *DataSet) Type() (*DataType, error) {
+	hid := C.H5Dget_type(s.id)
+	err := togo_err(C.herr_t(int(hid)))
+	if err != nil {
+		return nil, err
+	}
+	dt := new_dtype(hid, nil)
+	return dt, err
+}
+
 // Reads raw data from a dataset into a buffer.
 // herr_t H5Dread(hid_t dataset_id, hid_t mem_type_id, hid_t mem_space_id, hid_t file_space_id, hid_t xfer_plist_id, void * buf )
 func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
