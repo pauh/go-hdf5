@@ -98,6 +98,8 @@ func (s *DataSet) Type() (*DataType, error) {
 // herr_t H5Dread(hid_t dataset_id, hid_t mem_type_id, hid_t mem_space_id, hid_t file_space_id, hid_t xfer_plist_id, void * buf )
 func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 	var addr uintptr
+	var tmp_slice []byte
+	post_process := false
 	v := reflect.ValueOf(data)
 
 	//fmt.Printf(":: read[%s]...\n", v.Kind())
@@ -107,7 +109,13 @@ func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 		addr = v.UnsafeAddr()
 
 	case reflect.Slice:
-		addr = v.Pointer()
+		if v.Index(0).Kind() == reflect.String && C.H5Tis_variable_str(dtype.id) == 0 {
+			tmp_slice = make([]byte, v.Len() * dtype.Size())
+			addr = reflect.ValueOf(tmp_slice).Pointer()
+			post_process = true
+		} else {
+			addr = v.Pointer()
+		}
 
 	case reflect.String:
 		str := (*reflect.StringHeader)(unsafe.Pointer(v.UnsafeAddr()))
@@ -122,6 +130,14 @@ func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 
 	rc := C.H5Dread(s.id, dtype.id, 0, 0, 0, unsafe.Pointer(addr))
 	err := h5err(rc)
+
+	if err == nil && post_process {
+		str_len := dtype.Size()
+		for i := 0; i < v.Len(); i++ {
+			v.Index(i).SetString(string(tmp_slice[i*str_len:(i+1)*str_len]))
+		}
+	}
+
 	return err
 }
 
