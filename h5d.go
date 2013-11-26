@@ -6,8 +6,8 @@ package hdf5
 import "C"
 
 import (
+	"bytes"
 	"fmt"
-
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -110,7 +110,7 @@ func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 
 	case reflect.Slice:
 		if v.Index(0).Kind() == reflect.String && C.H5Tis_variable_str(dtype.id) == 0 {
-			tmp_slice = make([]byte, v.Len() * int(dtype.Size()))
+			tmp_slice = make([]byte, v.Len()*int(dtype.Size()))
 			addr = reflect.ValueOf(tmp_slice).Pointer()
 			post_process = true
 		} else {
@@ -133,8 +133,15 @@ func (s *Dataset) Read(data interface{}, dtype *Datatype) error {
 
 	if err == nil && post_process {
 		str_len := int(dtype.Size())
+		p := 0
 		for i := 0; i < v.Len(); i++ {
-			v.Index(i).SetString(string(tmp_slice[i*str_len:(i+1)*str_len]))
+			str := tmp_slice[p : p+str_len]
+			n := bytes.Index(str, []byte{0})
+			if n < 0 {
+				n = str_len
+			}
+			v.Index(i).SetString(string(str[:n]))
+			p += str_len
 		}
 	}
 
